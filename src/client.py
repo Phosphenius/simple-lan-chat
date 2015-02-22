@@ -1,93 +1,110 @@
 #!/usr/bin/python
 
 from socket import socket, AF_INET, SOCK_STREAM
-from threading import Timer
-from thread import start_new_thread
-from select import select
-import sys
+import Tkinter as tk
 
-from settings import (PORT, BUFSIZE, MAGIC_NUM, BROADCAST_MSG,
-                        CLIENT_BROADCAST_INTERVAL)
+from settings import PORT, BUFSIZE, MAGIC_NUM, BROADCAST_MSG
 from utils import create_broadcast_socket
 from fsm import FiniteStateMachine
 
+
+class ChatApplication(tk.Frame, FiniteStateMachine):
+    def __init__(self, master=None):
+        tk.Frame.__init__(self, master)
+        FiniteStateMachine.__init__(self)
+        self.grid()
+        self.create_widgets()
+        
+        self.change_state(ClientBroadcastState())
+        
+    def create_widgets(self):
+        self.text_box = tk.Text(self, state=tk.DISABLED)
+        self.text_box.grid()
+
+        self.textin_var = tk.StringVar()
+        self.textin = tk.Entry(self, textvariable=self.textin_var)
+        self.textin.grid(row=1, column=0)
+        
+        self.send_btn = tk.Button(self, text='Send')
+        self.send_btn.grid(row=1, column=1)
+        
 class ClientBroadcastState(object):
     def __init__(self):
+        self.bcast_sock = create_broadcast_socket()
+        self.bcast_sock.setblocking(False)
         self.client = None
-        self.brdcst_sock = create_broadcast_socket()
-        self.brdcst_sock.setblocking(False)
+        self.done = False
 
     def enter(self, fsm, old_state):
         self.client = fsm
-        self.broadcast()
+        self.client.send_btn.config(state=tk.DISABLED)
+        self.client.after(500, func=self.broadcast)
 
     def broadcast(self):
-        print('Searching for server...')
-
-        self.brdcst_sock.sendto(BROADCAST_MSG, ('<broadcast>', PORT))
-
-        timer = Timer(CLIENT_BROADCAST_INTERVAL, self.broadcast)
-        timer.start()
-
+        print('broadcasting')
+        self.bcast_sock.sendto(BROADCAST_MSG, ('<broadcast>', PORT))
+        
         try:
-            msg, addr = self.brdcst_sock.recvfrom(BUFSIZE)
+            msg, addr = self.bcast_sock.recvfrom(BUFSIZE)
+                
             if msg == MAGIC_NUM:
-                print 'Found server at: {0}'.format(addr[0])
                 comm_sock = socket(AF_INET, SOCK_STREAM)
-                try:
-                    comm_sock.connect((addr[0], PORT))
-                    print 'Successfully connected!'
-                    self.brdcst_sock.close()
-                    timer.cancel()
-                    self.client.change_state(
-                    ClientConnectedState(comm_sock))
-                except Exception as ex:
-                    print('Cannot connect {0}'.format(ex))
+                comm_sock.connect((addr[0], PORT))
+                self.done = True
+                self.bcast_sock.close()
+                self.client.change_state(ClientConnectedState(comm_sock))
         except:
             pass
 
+        if not self.done:
+            self.client.after(500, func=self.broadcast)
+        
 
 class ClientConnectedState(object):
-    def __init__(self, comm_sock):
-        self.comm_sock = comm_sock
-        self.input_queue = []
-
-    def prompt(self):
-        sys.stdout.write('>> ')
-        sys.stdout.flush()
+    def __init__(self, conn):
+        self.conn = conn
+        self.conn.setblocking(False)
+        self.client = None
 
     def enter(self, fsm, old_state):
-        self.prompt()
-        while True:
-            read, write, err = select([self.comm_sock, sys.stdin],
-            [], [])
+        self.client = fsm
+        self.client.send_btn.config(state=tk.NORMAL,  
+        command=self.send_message)
+        self.client.bind('<Return>', self.send_message)
+        
+        self.client.after(500, func=self.fetch_messages)
+    
+    def send_message(self):
+        msg = self.client.textin_var.get()
+        self.client.textin_var.set('')
+        self.client.text_box.config(state=tk.NORMAL)
+        self.client.text_box.insert(tk.END, 'You: {0}\n'.format(msg))
+        self.client.text_box.config(state=tk.DISABLED)
 
-            for sock in read:
-                if sock is self.comm_sock:
-                    msg = sock.recv(BUFSIZE)
-                    if not msg:
-                        print 'Disconnected from server!'
-                        fsm.change_state(ClientBroadcastState())
-                    else:
-                        sys.stdout.write(msg)
-                        self.prompt()
-                else:
-                    msg = sys.stdin.readline()
-                    self.comm_sock.send(msg)
-                    self.prompt()
-
-
-class ChatClient(FiniteStateMachine):
-    def __init__(self):
-        FiniteStateMachine.__init__(self)
-
-
-    def start(self):
-        self.change_state(ClientBroadcastState())
+        try:
+            self.conn.send(msg)
+        except Exception as ex:
+            print(ex)
+    
+    def fetch_messages(self):
+        try:
+            msg = self.conn.recv(BUFSIZE)
+            if not msg:
+                self.client.change_state(ClientBroadcastState())
+            else:
+                self.client.text_box.config(state=tk.NORMAL)
+                self.client.text_box.insert(tk.END, 
+                'Somebody: {0}\n'.format(msg))
+                self.client.text_box.config(state=tk.DISABLED)
+        except:
+            pass
+        
+        self.client.after(500, func=self.fetch_messages)
 
 def main():
-    client = ChatClient()
-    client.start()
+    root = tk.Tk()
+    app = ChatApplication(root)
+    app.mainloop()
 
 if __name__ == '__main__':
     main()

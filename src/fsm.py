@@ -5,7 +5,7 @@ This module contains the base classes needed to build a finite state machine.
 """
 
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 
 class FiniteStateMachine(object):
@@ -25,7 +25,7 @@ class FiniteStateMachine(object):
     def change_state(self, new_state):
         if (self.curr_state is not None and
         hasattr(self.curr_state, 'leave')):
-            self.curr_state.leave(fsm)
+            self.curr_state.leave()
 
         old_state = self.curr_state
         self.curr_state = new_state

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from socket import socket, AF_INET, SOCK_STREAM
+from socket import socket, AF_INET, SOCK_STREAM, error
 from select import select
 
 from settings import PORT, BUFSIZE, MAGIC_NUM, BROADCAST_MSG
@@ -11,7 +11,7 @@ def broadcast_data(sock, msg, clients):
         if client != sock:
             try:
                 client.send(msg)
-            except Exception as err:
+            except error as err:
                 print(err)
 
 def main():
@@ -26,10 +26,10 @@ def main():
     try:
         brdcst_sock.bind(('', PORT))
         while True:
-            read, write, err = select(
+            readable, _, _ = select(
             [brdcst_sock, srv_sock] + clients, [], [])
 
-            for sock in read:
+            for sock in readable:
                 if sock is brdcst_sock:
                     msg, addr = brdcst_sock.recvfrom(BUFSIZE)
                     if msg == BROADCAST_MSG:
@@ -48,7 +48,7 @@ def main():
                         sock.getpeername()[0]))
                     else:
                         ipaddr = sock.getpeername()[0]
-                        broadcast_data(sock, '{0}: {1}'.format(ipaddr, 
+                        broadcast_data(sock, '{0}: {1}'.format(ipaddr,
                         msg),
                         clients)
     finally:

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from socket import socket, AF_INET, SOCK_STREAM
+from socket import socket, AF_INET, SOCK_STREAM, error
 import Tkinter as tk
 
 from settings import PORT, BUFSIZE, MAGIC_NUM, BROADCAST_MSG
@@ -14,9 +14,9 @@ class ChatApplication(tk.Frame, FiniteStateMachine):
         FiniteStateMachine.__init__(self)
         self.grid()
         self.create_widgets()
-        
+
         self.change_state(ClientBroadcastState())
-        
+
     def create_widgets(self):
         self.text_box = tk.Text(self, state=tk.DISABLED)
         self.text_box.grid()
@@ -24,10 +24,10 @@ class ChatApplication(tk.Frame, FiniteStateMachine):
         self.textin_var = tk.StringVar()
         self.textin = tk.Entry(self, textvariable=self.textin_var)
         self.textin.grid(row=1, column=0)
-        
+
         self.send_btn = tk.Button(self, text='Send')
         self.send_btn.grid(row=1, column=1)
-        
+
 class ClientBroadcastState(object):
     def __init__(self):
         self.bcast_sock = create_broadcast_socket()
@@ -35,7 +35,7 @@ class ClientBroadcastState(object):
         self.client = None
         self.done = False
 
-    def enter(self, fsm, old_state):
+    def enter(self, fsm, _):
         self.client = fsm
         self.client.send_btn.config(state=tk.DISABLED)
         self.client.after(500, func=self.broadcast)
@@ -43,22 +43,22 @@ class ClientBroadcastState(object):
     def broadcast(self):
         print('broadcasting')
         self.bcast_sock.sendto(BROADCAST_MSG, ('<broadcast>', PORT))
-        
+
         try:
             msg, addr = self.bcast_sock.recvfrom(BUFSIZE)
-                
+
             if msg == MAGIC_NUM:
                 comm_sock = socket(AF_INET, SOCK_STREAM)
                 comm_sock.connect((addr[0], PORT))
                 self.done = True
                 self.bcast_sock.close()
                 self.client.change_state(ClientConnectedState(comm_sock))
-        except:
+        except error:
             pass
 
         if not self.done:
             self.client.after(500, func=self.broadcast)
-        
+
 
 class ClientConnectedState(object):
     def __init__(self, conn):
@@ -66,15 +66,15 @@ class ClientConnectedState(object):
         self.conn.setblocking(False)
         self.client = None
 
-    def enter(self, fsm, old_state):
+    def enter(self, fsm, _):
         self.client = fsm
-        self.client.send_btn.config(state=tk.NORMAL,  
+        self.client.send_btn.config(state=tk.NORMAL,
         command=self.send_message)
-        self.client.bind('<Return>', self.send_message)
-        
+        self.client.master.bind('<Return>', self.send_message)
+
         self.client.after(500, func=self.fetch_messages)
-    
-    def send_message(self):
+
+    def send_message(self, *_):
         msg = self.client.textin_var.get()
         self.client.textin_var.set('')
         self.client.text_box.config(state=tk.NORMAL)
@@ -83,9 +83,9 @@ class ClientConnectedState(object):
 
         try:
             self.conn.send(msg)
-        except Exception as ex:
-            print(ex)
-    
+        except error:
+            pass
+
     def fetch_messages(self):
         try:
             msg = self.conn.recv(BUFSIZE)
@@ -93,12 +93,12 @@ class ClientConnectedState(object):
                 self.client.change_state(ClientBroadcastState())
             else:
                 self.client.text_box.config(state=tk.NORMAL)
-                self.client.text_box.insert(tk.END, 
+                self.client.text_box.insert(tk.END,
                 'Somebody: {0}\n'.format(msg))
                 self.client.text_box.config(state=tk.DISABLED)
-        except:
+        except error:
             pass
-        
+
         self.client.after(500, func=self.fetch_messages)
 
 def main():

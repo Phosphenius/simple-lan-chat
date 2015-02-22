@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from socket import socket, AF_INET, SOCK_STREAM, error
-import Tkinter as tk
+import tkinter as tk
 
 from settings import PORT, BUFSIZE, MAGIC_NUM, BROADCAST_MSG
 from utils import create_broadcast_socket
@@ -76,19 +76,21 @@ class ClientConnectedState(object):
 
     def send_message(self, *_):
         msg = self.client.textin_var.get()
+        if msg == '':
+            return
         self.client.textin_var.set('')
         self.client.text_box.config(state=tk.NORMAL)
         self.client.text_box.insert(tk.END, 'You: {0}\n'.format(msg))
         self.client.text_box.config(state=tk.DISABLED)
 
         try:
-            self.conn.send(msg)
+            self.conn.send(msg.encode())
         except error:
             pass
 
     def fetch_messages(self):
         try:
-            msg = self.conn.recv(BUFSIZE)
+            msg = self.conn.recv(BUFSIZE).decode()
             if not msg:
                 self.client.change_state(ClientBroadcastState())
             else:

@@ -8,13 +8,11 @@ This module contains the base classes needed to build a finite state machine.
 from abc import ABCMeta
 
 
-class FiniteStateMachine(object):
+class FiniteStateMachine(object, metaclass=ABCMeta):
 
     """
     Simple, abstract base class for a finite state machine.
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, init_state=None):
         self.curr_state = init_state

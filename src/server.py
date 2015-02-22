@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from socket import socket, AF_INET, SOCK_STREAM, error
 from select import select
@@ -10,7 +10,7 @@ def broadcast_data(sock, msg, clients):
     for client in clients:
         if client != sock:
             try:
-                client.send(msg)
+                client.send(msg.encode())
             except error as err:
                 print(err)
 
@@ -41,7 +41,7 @@ def main():
                     broadcast_data(client,
                     '{0} entered room'.format(addr[0]), clients)
                 else:
-                    msg = sock.recv(BUFSIZE)
+                    msg = sock.recv(BUFSIZE).decode()
                     if msg == '':
                         clients.remove(sock)
                         print('Client disconnected ({0})'.format(

@@ -1,4 +1,4 @@
-# Simple LAN Chat v0.1.0
+# Simple LAN Chat
 
 
-Usually no external dependencies required. It might be though, that your System is missing the Tkinter package. This is often the case with Linux Ubuntu/Mint.
+Usually no extra requirements. It might be though, that your Python installation is missing the python-tk package. This is often the case with Linux Ubuntu/Mint.

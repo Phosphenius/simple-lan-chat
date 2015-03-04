@@ -28,6 +28,7 @@ class ChatApplication(tk.Frame, FiniteStateMachine):
         self.send_btn = tk.Button(self, text='Send')
         self.send_btn.grid(row=1, column=1)
 
+
 class ClientBroadcastState(object):
     def __init__(self):
         self.bcast_sock = create_broadcast_socket()
